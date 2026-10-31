@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apply</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; color: #222; background: #fff; max-width: 420px; margin: 48px auto; padding: 0 16px; }
+  h1 { font-size: 1.4rem; color: #3b4a6b; margin: 0 0 8px; }
+  label { display: block; margin-top: 14px; font-size: .9rem; }
+  input, textarea { width: 100%; margin-top: 4px; padding: 8px; font: inherit; border: 1px solid #ccc; background: #fff; }
+  textarea { height: 100px; resize: vertical; }
+  button { margin-top: 20px; width: 100%; padding: 12px; border: 0; background: #3b4a6b; color: #fff; font: inherit; cursor: pointer; }
+  button:disabled { opacity: .6; }
+  #status { margin-top: 14px; font-size: .9rem; color: #3b4a6b; }
+</style>
+</head>
+<body>
+<h1>Job Application</h1>
+<form id="form">
+  <label>Full Name <input name="full_name" required></label>
+  <label>Email <input name="email" type="email" required></label>
+  <label>Job Role <input name="job_role" required></label>
+  <label>Message <textarea name="message"></textarea></label>
+  <label>CV (PDF) <input name="cv" type="file" accept="application/pdf" required></label>
+  <button id="submit">Submit</button>
+</form>
+<p id="status"></p>
+
+<script>
+  // Address of the HR app's REST API.
+  const API = "http://localhost:5000/api/applications";
+
+  const form = document.getElementById("form");
+  const button = document.getElementById("submit");
+  const status = document.getElementById("status");
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    button.disabled = true;
+    status.textContent = "";
+    try {
+      const res = await fetch(API, { method: "POST", body: new FormData(form) });
+      if (res.ok) {
+        form.reset();
+        status.textContent = "Application submitted. Thank you.";
+      } else {
+        status.textContent = "Something went wrong. Please try again.";
+      }
+    } catch {
+      status.textContent = "Could not reach the server.";
+    }
+    button.disabled = false;
+  });
+</script>
+</body>
+</html>

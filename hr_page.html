@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HR Review</title>
+<style>
+  :root { --navy: #3b4a6b; --green: #3f8a5a; --red: #b34a42; --nav: 44px; }
+  * { box-sizing: border-box; margin: 0; }
+  body { font-family: system-ui, sans-serif; color: #222; background: #fff; overflow: hidden; }
+
+  nav { display: flex; height: var(--nav); background: #f3f4f7; }
+  nav button { flex: 1; border: 0; background: none; font: inherit; color: #666; cursor: pointer; }
+  nav button.active { color: var(--navy); font-weight: 600; box-shadow: inset 0 -2px var(--navy); }
+
+  #feed {
+    height: calc(100vh - var(--nav));
+    height: calc(100dvh - var(--nav));
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+  }
+  .card, .empty {
+    height: calc(100vh - var(--nav));
+    height: calc(100dvh - var(--nav));
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+  }
+  .empty { align-items: center; justify-content: center; color: #888; }
+
+  .info { padding: 10px 14px 4px; }
+  .info a { color: var(--navy); margin-left: 8px; font-size: .9rem; }
+  .meta { padding: 0 14px; color: #666; font-size: .9rem; }
+  .msg { padding: 6px 14px 8px; font-size: .9rem; max-height: 4.5em; overflow: auto; }
+
+  iframe { flex: 1; width: 100%; border: 0; pointer-events: none; background: #f3f4f7; }
+
+  .actions { display: flex; }
+  .actions button { flex: 1; padding: 16px; border: 0; color: #fff; font: inherit; cursor: pointer; }
+  .no { background: var(--red); }
+  .yes { background: var(--green); }
+</style>
+</head>
+<body>
+<nav>
+  <button class="active" data-tab="submitted">Submissions</button>
+  <button data-tab="interview">Interview</button>
+</nav>
+<div id="feed"></div>
+
+<script>
+  let tab = "submitted";
+  const counts = { submitted: 0, interview: 0 };
+  const labels = { submitted: "Submissions", interview: "Interview" };
+  const feed = document.getElementById("feed");
+  const tabButtons = document.querySelectorAll("nav button");
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function updateTabs() {
+    tabButtons.forEach(b => {
+      const t = b.dataset.tab;
+      b.textContent = labels[t] + " (" + counts[t] + ")";
+      b.classList.toggle("active", t === tab);
+    });
+  }
+
+  function showEmpty() {
+    feed.replaceChildren(el("div", "empty", "No candidates here."));
+  }
+
+  function makeCard(a) {
+    const card = el("div", "card");
+
+    const info = el("div", "info");
+    info.append(el("strong", "", a.full_name));
+    const link = el("a", "", "Open CV");
+    link.href = "/cv/" + a.id;
+    link.target = "_blank";
+    info.append(link);
+
+    card.append(info, el("div", "meta", a.job_role + " · " + a.email));
+    if (a.message) card.append(el("div", "msg", a.message));
+
+    const frame = el("iframe");
+    frame.loading = "lazy";
+    frame.src = "/cv/" + a.id + "#toolbar=0&navpanes=0&view=FitH";
+    card.append(frame);
+
+    const actions = el("div", "actions");
+    const no = el("button", "no", "Reject");
+    const yes = el("button", "yes", tab === "submitted" ? "Interview" : "Select");
+    no.onclick = () => act(a, card, "reject");
+    yes.onclick = () => act(a, card, "accept");
+    actions.append(no, yes);
+    card.append(actions);
+    return card;
+  }
+
+  async function act(a, card, verb) {
+    await fetch("/api/applications/" + a.id + "/" + verb, { method: "POST" });
+    card.remove();
+    counts[tab]--;
+    if (verb === "accept" && tab === "submitted") counts.interview++;
+    updateTabs();
+    if (!feed.children.length) showEmpty();
+  }
+
+  async function load() {
+    const [sub, itv] = await Promise.all(
+      ["submitted", "interview"].map(s => fetch("/api/applications?status=" + s).then(r => r.json()))
+    );
+    counts.submitted = sub.length;
+    counts.interview = itv.length;
+    updateTabs();
+
+    const items = tab === "submitted" ? sub : itv;
+    if (!items.length) return showEmpty();
+    feed.replaceChildren(...items.map(makeCard));
+    feed.scrollTop = 0;
+  }
+
+  tabButtons.forEach(b => b.onclick = () => { tab = b.dataset.tab; load(); });
+  document.addEventListener("keydown", e => {
+    const h = feed.clientHeight;
+    if (e.key === "ArrowDown") feed.scrollBy({ top: h, behavior: "smooth" });
+    if (e.key === "ArrowUp") feed.scrollBy({ top: -h, behavior: "smooth" });
+  });
+
+  load();
+</script>
+</body>
+</html>
